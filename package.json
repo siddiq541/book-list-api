@@ -9,10 +9,18 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "A simple **Node.js** + **Express API** for managing a book list.\r Each book includes: **Title, Author, Read/Not read status, and ID**.",
   "dependencies": {
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "nodemon": "^3.1.10"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siddiq541/book-list-api.git"
+  },
+  "bugs": {
+    "url": "https://github.com/siddiq541/book-list-api/issues"
+  },
+  "homepage": "https://github.com/siddiq541/book-list-api#readme"
 }
