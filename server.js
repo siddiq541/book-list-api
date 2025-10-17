@@ -4,18 +4,16 @@ const dotenv = require("dotenv");
 const connectDB = require("./src/config/db");
 const bookRoutes = require("./src/routes/bookRoutes");
 
-// Import Mongoose
-const mongoose = require("mongoose");
-
 dotenv.config();
+const app = express();
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
+
 connectDB();
 
-const app = express();
 const PORT = process.env.PORT || 5001;
 
 // Middleware
-app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
 
 // Routes
 app.use("/api/books", bookRoutes);
