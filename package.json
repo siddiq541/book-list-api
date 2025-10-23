@@ -11,8 +11,11 @@
   "license": "ISC",
   "description": "A simple **Node.js** + **Express API** for managing a book list.\r Each book includes: **Title, Author, Read/Not read status, and ID**.",
   "dependencies": {
+    "bcryptjs": "^3.0.2",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.20.0",
     "mongoose": "^8.19.1",
     "nodemon": "^3.1.10"
   },
