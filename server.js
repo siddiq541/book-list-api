@@ -11,7 +11,10 @@ dotenv.config();
 const app = express();
 app.use(
   cors({
-    origin: "http://localhost:3000", // frontend origin
+    origin: [
+      "http://localhost:3000", // local dev
+      "https://book-list-frontend-git-development-siddiqs-projects-9f9d6a84.vercel.app", // Vercel frontend
+    ], // Vercel frontend
     credentials: true, // if sending cookies
   })
 );
