@@ -1,14 +1,19 @@
 const express = require("express");
 const router = express.Router();
-const { 
-  registerUser, 
-  loginUser, 
-  getUserProfile, 
-  getUsers, 
-  addUser, 
-  getUserById, 
-  updateUser, 
-  deleteUser 
+const {
+  registerUser,
+  loginUser,
+  getUserProfile,
+  getUsers,
+  addUser,
+  getUserById,
+  updateUser,
+  deleteUser,
+  addBookToReadingList,
+  removeBookFromReadingList,
+  toggleFavoriteBook,
+  getReadingList,
+  updateBookStatus,
 } = require("../controllers/userController");
 const auth = require("../middleware/auth");
 
@@ -16,14 +21,21 @@ const auth = require("../middleware/auth");
 router.post("/register", registerUser);
 router.post("/login", loginUser);
 
-// CRUD routes
-router.post("/", addUser);           // Create user
-router.get("/", getUsers);           // Get all users
-router.get("/:id", getUserById);     // Get user by ID
-router.put("/:id", updateUser);      // Update user
-router.delete("/:id", deleteUser);   // Delete user
-
-// Protected route
+// ✅ Protected routes first
 router.get("/profile", auth, getUserProfile);
+router.post("/reading-list", auth, addBookToReadingList);
+router.post("/favorites", auth, toggleFavoriteBook);
+router.get("/reading-list", auth, getReadingList);
+router.put("/reading-list/status", auth, updateBookStatus);
+
+router.delete("/reading-list/:bookId", auth, removeBookFromReadingList);
+router.put("/favorite/:bookId", auth, toggleFavoriteBook);
+
+// CRUD routes after protected ones
+router.post("/", addUser);
+router.get("/", getUsers);
+router.get("/:id", getUserById);
+router.put("/:id", updateUser);
+router.delete("/:id", deleteUser);
 
 module.exports = router;
