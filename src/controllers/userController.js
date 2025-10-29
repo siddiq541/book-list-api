@@ -1,11 +1,12 @@
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const User = require("../models/userModel");
+const Book = require("../models/bookModel");
 
 // Generate JWT token
 const generateToken = (userId) => {
   return jwt.sign({ userId }, process.env.JWT_SECRET || "fallback_secret", {
-    expiresIn: "7d"
+    expiresIn: "7d",
   });
 };
 
@@ -16,12 +17,12 @@ const registerUser = async (req, res) => {
   try {
     // Check if user already exists
     const existingUser = await User.findOne({
-      $or: [{ email }, { username }]
+      $or: [{ email }, { username }],
     });
 
     if (existingUser) {
       return res.status(400).json({
-        message: "User already exists with this email or username"
+        message: "User already exists with this email or username",
       });
     }
 
@@ -29,7 +30,7 @@ const registerUser = async (req, res) => {
     const newUser = await User.create({
       username,
       email,
-      password
+      password,
     });
 
     // Generate token
@@ -40,9 +41,9 @@ const registerUser = async (req, res) => {
       user: {
         id: newUser._id,
         username: newUser.username,
-        email: newUser.email
+        email: newUser.email,
       },
-      token
+      token,
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -57,14 +58,14 @@ const loginUser = async (req, res) => {
   try {
     // Find user by email
     const user = await User.findOne({ email });
-    
+
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
     // Check password
     const isPasswordValid = await user.comparePassword(password);
-    
+
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
@@ -77,9 +78,9 @@ const loginUser = async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
-        email: user.email
+        email: user.email,
       },
-      token
+      token,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -90,8 +91,10 @@ const loginUser = async (req, res) => {
 // Get user profile
 const getUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select("-password");
-    
+    const user = await User.findById(req.user.userId)
+      .select("-password")
+      .populate("readingList.book", "title author coverImage");
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -131,7 +134,7 @@ const getUserById = async (req, res) => {
     }
 
     const user = await User.findById(id).select("-password");
-    
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -167,24 +170,23 @@ const updateUser = async (req, res) => {
           {
             $or: [
               { email: updateData.email },
-              { username: updateData.username }
-            ]
-          }
-        ]
+              { username: updateData.username },
+            ],
+          },
+        ],
       });
 
       if (existingUser) {
         return res.status(400).json({
-          message: "Email or username already exists"
+          message: "Email or username already exists",
         });
       }
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    ).select("-password");
+    const updatedUser = await User.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    }).select("-password");
 
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
@@ -192,7 +194,7 @@ const updateUser = async (req, res) => {
 
     res.status(200).json({
       message: "User updated successfully",
-      user: updatedUser
+      user: updatedUser,
     });
   } catch (error) {
     console.error("Update user error:", error);
@@ -218,7 +220,7 @@ const deleteUser = async (req, res) => {
 
     res.status(200).json({
       message: "User deleted successfully",
-      deletedUser: deletedUser
+      deletedUser: deletedUser,
     });
   } catch (error) {
     console.error("Delete user error:", error);
@@ -226,13 +228,152 @@ const deleteUser = async (req, res) => {
   }
 };
 
-module.exports = { 
-  registerUser, 
-  loginUser, 
-  getUserProfile, 
-  getUsers, 
-  addUser, 
-  getUserById, 
-  updateUser, 
-  deleteUser 
+// Get current user's reading list with favorite flag
+const getReadingList = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).populate(
+      "readingList.book"
+    );
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({
+      readingList: user.readingList,
+      favorites: user.favorites, // add this
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Add book to reading list
+
+const addBookToReadingList = async (req, res) => {
+  const { googleId, title, author, coverImage } = req.body;
+
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Check if book exists in books collection
+    let book = await Book.findOne({ googleId });
+    if (!book) {
+      book = await Book.create({ googleId, title, author, coverImage });
+    }
+
+    // Check if already in user's reading list
+    const exists = user.readingList.find(
+      (b) => b.book.toString() === book._id.toString()
+    );
+    if (exists)
+      return res.status(400).json({ message: "Book already in reading list" });
+
+    // Add book reference with status
+    user.readingList.push({ book: book._id, status: "want-to-read" });
+    await user.save();
+
+    res
+      .status(201)
+      .json({ message: "Book added", readingList: user.readingList });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Remove book from reading list
+const removeBookFromReadingList = async (req, res) => {
+  const { bookId } = req.params;
+  const userId = req.user.userId;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Remove the book from reading list
+    user.readingList = user.readingList.filter(
+      (b) => b.book.toString() !== bookId
+    );
+
+    // Also remove it from favorites if it's there
+    user.favorites = user.favorites.filter((fav) => fav.toString() !== bookId);
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Book removed from reading list and favorites",
+      readingList: user.readingList,
+      favorites: user.favorites,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Toggle favorite book
+const toggleFavoriteBook = async (req, res) => {
+  const { bookId } = req.params;
+  const userId = req.user.userId;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.favorites.includes(bookId)) {
+      user.favorites = user.favorites.filter((id) => id.toString() !== bookId);
+    } else {
+      user.favorites.push(bookId);
+    }
+
+    await user.save();
+    res.status(200).json({ favorites: user.favorites });
+  } catch (err) {
+    console.error("Toggle favorite error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Update book status in reading list
+const updateBookStatus = async (req, res) => {
+  const { bookId, status } = req.body;
+  const userId = req.user.userId;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Find the book in reading list
+    const entry = user.readingList.find((b) => b.book.toString() === bookId);
+    if (!entry)
+      return res.status(404).json({ message: "Book not in reading list" });
+
+    // Update status
+    entry.status = status;
+    await user.save();
+
+    res
+      .status(200)
+      .json({ message: "Status updated", readingList: user.readingList });
+  } catch (err) {
+    console.error("Update status error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+module.exports = {
+  registerUser,
+  loginUser,
+  getUserProfile,
+  getUsers,
+  addUser,
+  getUserById,
+  updateUser,
+  deleteUser,
+  addBookToReadingList,
+  removeBookFromReadingList,
+  toggleFavoriteBook,
+  getReadingList,
+  updateBookStatus,
 };
